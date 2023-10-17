@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./file_uploader/Dockerfile
+    restart: always
+    container_name: web
+    command: ["./entrypoint.sh", "web"]
+    volumes:
+      - shared_files:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    container_name: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - test_pgdata:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: testdatabase
+      POSTGRES_USER: mytestuser
+      POSTGRES_PASSWORD: mytestpassword
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./file_uploader/Dockerfile
+    container_name: celery_worker
+    command: ["./entrypoint.sh", "celery"]
+    volumes:
+      - shared_files:/app/uploads
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:alpine"
+    restart: always
+    container_name: redis
+    healthcheck:
+      test: [ "CMD-SHELL", "redis-cli ping | grep PONG" ]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+
+volumes:
+  test_pgdata:
+    name: test_pgdata
+  shared_files:
